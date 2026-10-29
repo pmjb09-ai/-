@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>버릴지도 & 에코 숲 키우기</title>
+<style>
+  :root { 
+    --ink:#20312b; 
+    --muted:#68766f; 
+    --green:#2f7657; 
+    --green-light:#e2f2ea;
+    --pale:#eef6ef; 
+    --line:#dce7dd; 
+    --cream:#fbfcf8; 
+    --gold:#d97706;
+    --gold-bg:#fef3c7;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--cream); color:var(--ink); font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif; padding-bottom: 40px; }
+  .wrap { max-width:760px; margin:0 auto; padding:16px 18px 54px; }
+  
+  /* Top Bar & Navigation */
+  .top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 12px 18px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    position: sticky;
+    top: 10px;
+    z-index: 100;
+  }
+  .nav-brand { font-weight: 800; color: var(--green); font-size: 18px; cursor: pointer; }
+  .nav-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab-btn {
+    border: 0;
+    background: transparent;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: var(--pale);
+    color: var(--green);
+  }
+  
+  /* Point & Forest Status Badge */
+  .dashboard-status {
+    background: white;
+    border: 1px solid var(--line);
+    padding: 16px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+  .stat-card {
+    background: var(--pale);
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+  .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+  .stat-val { font-size: 18px; font-weight: 800; color: var(--green); }
+
+  header { padding:12px 2px 20px; }
+  .eyebrow { color:var(--green); font-size:12px; font-weight:800; letter-spacing:.14em; }
+  h1 { font-size:clamp(24px,5vw,36px); line-height:1.2; margin:8px 0; letter-spacing:-.05em; }
+  header p { color:var(--muted); line-height:1.7; margin:0; font-size: 14px; }
+  
+  .panel { background:white; border:1px solid var(--line); border-radius:24px; padding:20px; margin:14px 0; box-shadow:0 8px 26px #243b2b08; }
+  
+  /* Tree Select & Grow Visual */
+  .tree-select-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .tree-option {
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+  }
+  .tree-option.selected {
+    border-color: var(--green);
+    background: var(--pale);
+  }
+  .tree-option-icon { font-size: 32px; display: block; margin-bottom: 4px; }
+  .tree-option-title { font-size: 13px; font-weight: 700; }
+
+  .tree-grow-stage {
+    background: linear-gradient(180deg, #e0f2fe 0%, #dcfce7 100%);
+    border-radius: 20px;
+    padding: 24px 16px;
+    text-align: center;
+    margin: 16px 0;
+    position: relative;
+  }
+  .tree-avatar {
+    font-size: 72px;
+    display: inline-block;
+    transition: transform 0.3s ease;
+    filter: drop-shadow(0 8px 6px rgba(0,0,0,0.1));
+  }
+  
+  .progress-bar-bg {
+    background: rgba(255,255,255,0.7);
+    height: 12px;
+    border-radius: 99px;
+    overflow: hidden;
+    margin: 12px 0 6px;
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+  .progress-bar-fill {
+    background: var(--green);
+    height: 100%;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  /* Forest Interactive Canvas Stage */
+  .forest-canvas-container {
+    position: relative;
+    width: 100%;
+    height: 380px;
+    background: linear-gradient(180deg, #bae6fd 0%, #bbf7d0 60%, #86efac 100%);
+    border-radius: 20px;
+    border: 2px solid var(--line);
+    overflow: hidden;
+    cursor: crosshair;
+    box-shadow: inset 0 -10px 20px rgba(0,0,0,0.05);
+  }
+  .placed-tree {
+    position: absolute;
+    font-size: 38px;
+    transform: translate(-50%, -100%);
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.15s;
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.15));
+  }
+  .placed-tree:hover {
+    transform: translate(-50%, -110%) scale(1.15);
+  }
+  .tree-inventory {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 10px 4px;
+    margin-top: 10px;
+  }
+  .inv-item {
+    background: white;
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .inv-item.active {
+    border-color: var(--green);
+    background: var(--pale);
+  }
+
+  /* Camera / Upload Styles */
+  .upload { border:2px dashed #b9d1bd; border-radius:18px; background:#f7fbf6; padding:22px 16px; text-align:center; }
+  .camera { font-size:38px; margin-bottom:8px; }
+  .upload strong { display:block; font-size:17px; }
+  .upload p { color:var(--muted); font-size:13px; line-height:1.6; }
+  input[type=file] { display:block; width:100%; margin:14px 0 0; font-size:14px; }
+  #preview { display:none; max-width:100%; max-height:300px; object-fit:contain; margin:18px auto 0; border-radius:14px; }
+  
+  .btn { border:0; border-radius:13px; padding:13px 16px; font-weight:750; font-size:15px; cursor:pointer; transition: transform 0.1s; }
+  .btn:active { transform: scale(0.98); }
+  .primary { background:var(--green); color:white; width:100%; margin-top:10px; }
+  .secondary { background:var(--pale); color:var(--green); }
+  button:disabled { opacity:.5; cursor:wait; }
+  
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .row select { flex:1; min-width:180px; padding:12px; border:1px solid var(--line); border-radius:12px; background:white; color:var(--ink); font-size:14px; }
+  .hint { color:var(--muted); font-size:12px; line-height:1.6; }
+  #status { display:none; margin-top:14px; padding:12px 14px; border-radius:12px; background:#f4f7f4; color:var(--muted); font-size:13px; line-height:1.6; }
+  #result { display:none; }
+  .result-head { display:flex; gap:12px; align-items:center; margin-bottom:16px; }
+  .result-icon { width:54px; height:54px; border-radius:17px; display:grid; place-items:center; background:var(--pale); font-size:27px; flex-shrink:0; }
+  h2 { margin:0; font-size:22px; letter-spacing:-.03em; }
+  .sub { color:var(--muted); font-size:13px; margin-top:4px; }
+  .steps { padding-left:20px; margin:12px 0; line-height:1.8; }
+  .warning { background:#fff8e8; border:1px solid #f0dfb7; padding:13px; border-radius:14px; color:#66532c; font-size:13px; line-height:1.65; margin-top:14px; }
+  .tag { display:inline-block; font-size:12px; padding:5px 9px; border-radius:99px; background:#f0f3f0; color:#53645a; }
+  
+  footer { color:var(--muted); font-size:12px; line-height:1.7; padding:20px 4px 12px; border-top: 1px solid var(--line); margin-top: 30px; text-align: center; }
+
+  [hidden] { display: none !important; }
+
+  /* Home Page Styles */
+  .home-page { text-align: center; padding: 10px 4px; }
+  .home-page h1 { margin-top: 14px; }
+  .home-page > p { color: var(--muted); line-height: 1.8; }
+  .trash-island {
+    position: relative;
+    max-width: 380px;
+    margin: 20px auto;
+    padding: 20px 12px 16px;
+    border-radius: 48% 48% 35% 35%;
+    background: linear-gradient(#e8f5ee, #c5e8e0);
+    overflow: hidden;
+  }
+  .island-sky { font-size: 22px; padding: 4px; }
+  .island-trash { font-size: clamp(28px, 7vw, 40px); padding: 8px 0; }
+  .island-ground { background: #8bbd83; border-radius: 50%; padding: 14px 8px; font-size: 24px; box-shadow: inset 0 -6px #6b9e68; }
+  .island-water { padding-top: 10px; font-size: 18px; letter-spacing: 2px; }
+
+  /* Eco Shop Styles */
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .shop-card {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+  .shop-img {
+    height: 110px;
+    background: var(--pale);
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 46px;
+    margin-bottom: 12px;
+  }
+  .product-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .product-desc { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
+  .product-price { font-weight: 800; font-size: 16px; color: var(--ink); }
+  .cashback-badge {
+    display: inline-block;
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+  .buy-btn {
+    background: var(--green);
+    color: white;
+    border: 0;
+    border-radius: 10px;
+    padding: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-top: 12px;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  /* Modal Dialog */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .modal {
+    background: white;
+    padding: 24px;
+    border-radius: 20px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+  }
+  .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 12px; }
+  .modal-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
+  .modal-row.total { border-top: 1px solid var(--line); padding-top: 10px; font-weight: 800; font-size: 16px; }
+  .badge-beta {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <!-- 네비게이션 헤더 -->
+    <nav class="top-nav">
+      <div class="nav-brand" id="navLogo">🌱 버릴지도</div>
+      <div class="nav-tabs">
+        <button class="tab-btn active" id="tabHome">홈</button>
+        <button class="tab-btn" id="tabTree">숲 키우기 🌲</button>
+        <button class="tab-btn" id="tabGuide">분리배출</button>
+        <button class="tab-btn" id="tabShop">에코 상점 🛒</button>
+      </div>
+    </nav>
+
+    <!-- 대시보드 : 포인트 & 숲 정보 -->
+    <div class="dashboard-status">
+      <div class="stat-card">
+        <div class="stat-label">💰 에코 포인트</div>
+        <div class="stat-val" id="userPoints">0 pt</div>
+      </div>
+      <div class="stat-card" style="background: #f0fdf4;">
+        <div class="stat-label">🌳 모은 나무 수</div>
+        <div class="stat-val" id="userTreeInventoryCount">0 그루</div>
+      </div>
+    </div>
+
+    <!-- 1. 메인 홈 화면 -->
+    <section id="homePage" class="home-page">
+      <div class="eyebrow">LESS WASTE, BETTER TOMORROW</div>
+      <h1>쓰레기 분리배출로<br>나만의 푸른 숲을 키워요!</h1>
+      <p>올바른 분리배출 5회마다 <strong>150 포인트</strong>와 <strong>나무</strong>를 얻고<br>나만의 에코 숲을 예쁘게 꾸밀 수 있습니다.</p>
+
+      <div class="trash-island" aria-label="재활용 쓰레기로 이루어진 작은 섬">
+        <div class="island-sky">☁️　🕊️　☁️</div>
+        <div class="island-trash">🧴　🥫 순환하는 지구 📦</div>
+        <div class="island-ground">🌲 🌱 🗑️ 🌱 🌳</div>
+        <div class="island-water">🌊 🌊 🌊 🌊 🌊</div>
+      </div>
+
+      <button id="startGrowTree" class="btn primary" style="max-width: 320px; margin: 0 auto;">
+        숲 키우러 가기 🌲
+      </button>
+    </section>
+
+    <!-- 2. 숲 키우기 & 꾸미기 화면 -->
+    <div id="treePage" hidden>
+      <header>
+        <div class="eyebrow">MY ECO FOREST</div>
+        <h1>나만의 숲 키우기</h1>
+        <p>키울 나무를 선택하고 올바른 분리배출을 실천해 보세요!</p>
+      </header>
+
+      <!-- 나무 선택 및 성장 패널 -->
+      <section class="panel">
+        <h2 style="font-size:18px;">① 키울 나무 종류 선택</h2>
+        <div class="tree-select-grid" id="treeSelectGrid">
+          <div class="tree-option selected" data-tree="apple" data-icon="🍎">
+            <span class="tree-option-icon">🍎</span>
+            <span class="tree-option-title">사과나무</span>
+          </div>
+          <div class="tree-option" data-tree="pine" data-icon="🌲">
+            <span class="tree-option-icon">🌲</span>
+            <span class="tree-option-title">소나무</span>
+          </div>
+          <div class="tree-option" data-tree="cherry" data-icon="🌸">
+            <span class="tree-option-icon">🌸</span>
+            <span class="tree-option-title">벚꽃나무</span>
+          </div>
+        </div>
+
+        <div class="tree-grow-stage">
+          <div class="tree-avatar" id="currentTreeAvatar">🌱</div>
+          <div style="font-weight: 800; font-size: 16px; margin-top: 8px;" id="currentTreeName">사과나무 자라는 중...</div>
+          <div style="font-size: 13px; color: var(--muted); margin-top: 2px;" id="growStageText">1단계: 새싹 (실천 0/5)</div>
+          
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="treeProgressFill"></div>
+          </div>
+          
+          <p style="font-size: 12px; color: var(--muted); margin-top: 10px;">
+            분리배출을 1회 확인할 때마다 영양분이 공급됩니다 (5회 완성시 150pt + 나무 획득)
+          </p>
+          <button id="goRecycleBtn" class="btn primary" style="margin-top: 6px;">분리배출 실천하러 가기 📸</button>
+        </div>
+      </section>
+
+      <!-- 나만의 숲 꾸미기 캔버스 영역 -->
+      <section class="panel">
+        <h2 style="font-size:18px; margin-bottom: 4px;">② 나만의 숲 꾸미기 🎨</h2>
+        <p class="hint" style="margin-bottom: 12px;">원하는 나무를 선택한 후, 아래 파란 잔디 밭을 클릭해 원하는 위치에 자유롭게 심어보세요!</p>
+        
+        <div style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">심을 나무 선택:</div>
+        <div class="tree-inventory" id="treeInventoryList">
+          <!-- JS로 나무 인벤토리 채움 -->
+        </div>
+
+        <div class="forest-canvas-container" id="forestCanvas">
+          <div style="position: absolute; top: 12px; right: 14px; font-size: 12px; background: rgba(255,255,255,0.8); padding: 4px 10px; border-radius: 20px; font-weight: 700; color: var(--green);">
+            💡 잔디밭을 클릭하여 나무 심기 (나무 클릭시 삭제)
+          </div>
+          <!-- 심어진 나무들이 위치할 영역 -->
+        </div>
+        <button id="clearForestBtn" class="btn secondary" style="width: 100%; margin-top: 10px; font-size: 13px;">숲 초기화 하기</button>
+      </section>
+    </div>
+
+    <!-- 3. 분리배출 가이드 화면 -->
+    <div id="guidePage" hidden>
+      <header>
+        <div class="eyebrow">AI RECYCLING HELPER</div>
+        <h1>분리배출 가이드</h1>
+        <p>사진 분석 또는 직접 선택으로 분리배출 방법을 확인하고,<br>나무에 영양분을 주어 150포인트를 모아보세요!</p>
+      </header>
+
+      <section class="panel">
+        <h2 style="font-size:18px;margin-bottom:15px;">① 사진 올리기</h2>
+        <div class="upload">
+          <div class="camera">📷</div>
+          <strong>무엇을 버리려고 하나요?</strong>
+          <p>물건 하나가 잘 보이도록 촬영해 주세요.</p>
+          <input id="file" type="file" accept="image/*" capture="environment">
+          <img id="preview" alt="업로드한 사진 미리보기">
+        </div>
+        <button id="analyze" class="btn primary" disabled>사진 분석하기</button>
+        <div id="status" role="status"></div>
+      </section>
+
+      <section class="panel">
+        <h2 style="font-size:18px;margin-bottom:8px;">② 직접 종류 선택하기</h2>
+        <p class="hint">사진 분석이 어렵다면 아래에서 직접 선택해 보세요.</p>
+        <div class="row">
+          <select id="manual">
+            <option value="">종류를 선택하세요</option>
+          </select>
+          <button id="showManual" class="btn secondary">배출법 보기</button>
+        </div>
+      </section>
+
+      <section id="result" class="panel" aria-live="polite">
+        <div class="result-head">
+          <div id="resultIcon" class="result-icon">♻️</div>
+          <div>
+            <div class="tag">배출 안내</div>
+            <h2 id="resultTitle" style="margin-top:6px;">플라스틱 용기</h2>
+            <div id="confidence" class="sub"></div>
+          </div>
+        </div>
+        <strong>이렇게 배출해요</strong>
+        <ol id="steps" class="steps"></ol>
+        <div id="caution" class="warning"></div>
+      </section>
+    </div>
+
+    <!-- 4. 친환경 에코 상점 화면 -->
+    <div id="shopPage" hidden>
+      <header>
+        <div class="eyebrow">ECO-FRIENDLY SHOP <span class="badge-beta">BETA VER</span></div>
+        <h1>친환경 에코 상점</h1>
+        <p>분리배출과 숲 키우기로 얻은 포인트로 친환경 제품을 구매해보세요.<br>구매 시 <strong>30% 캐시백 포인트</strong>가 즉시 적립됩니다!</p>
+      </header>
+
+      <div class="shop-grid" id="shopGrid">
+        <!-- JS로 상품 리스트 생성 -->
+      </div>
+    </div>
+
+    <!-- 결제 모달 (시뮬레이션) -->
+    <div id="paymentModal" class="modal-overlay" hidden>
+      <div class="modal">
+        <div class="modal-title">📦 에코 상품 결제 <span class="badge-beta">시뮬레이션</span></div>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+          베타 테스트 버전으로 실제 결제가 되지 않습니다.
+        </p>
+        
+        <div class="modal-row">
+          <span>상품명</span>
+          <strong id="modalProdName">-</strong>
+        </div>
+        <div class="modal-row">
+          <span>상품 금액</span>
+          <span id="modalProdPrice">0원</span>
+        </div>
+        <div class="modal-row" style="color: var(--gold);">
+          <span>포인트 우선 사용</span>
+          <strong id="modalUsedPoints">-0 pt</strong>
+        </div>
+        <div class="modal-row total">
+          <span>최종 가상 결제액</span>
+          <span id="modalFinalPay" style="color: var(--green);">0원</span>
+        </div>
+        <div class="modal-row" style="font-size: 12px; color: var(--green); margin-top: 8px;">
+          <span>구매 적립 혜택 (30% 캐시백)</span>
+          <strong id="modalCashback">+0 pt</strong>
+        </div>
+
+        <button id="confirmPayBtn" class="btn primary">결제 승인하기 (무료/테스트)</button>
+        <button id="closeModalBtn" class="btn secondary" style="width: 100%; margin-top: 8px;">취소</button>
+      </div>
+    </div>
+
+    <footer>
+      학교 프로젝트용 샘플 모바일 웹 앱입니다. AI 분석 기능 및 가상 결제 시스템이 포함되어 있습니다.
+    </footer>
+</div>
+
+<script type="module">
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
+
+env.allowLocalModels = false;
+
+// 1. 상태 관리 (로컬스토리지 저장)
+let state = {
+  points: parseInt(localStorage.getItem('eco_points') || '300'),
+  recycleCount: parseInt(localStorage.getItem('eco_count') || '0'),
+  selectedTreeType: localStorage.getItem('eco_selected_tree') || 'apple',
+  inventory: JSON.parse(localStorage.getItem('eco_inventory') || '["🍎", "🌲"]'), // 보유한 심을 수 있는 나무들
+  placedTrees: JSON.parse(localStorage.getItem('eco_placed_trees') || '[]'), // 숲 캔버스에 심어진 나무 좌표 [{x, y, icon}]
+  activeInvIcon: '🍎'
+};
+
+const treeTypes = {
+  apple: { name: '사과나무', stages: ['🌱', '🌿', '🌳', '🌳🍎', '🌳🍎✨'], finalIcon: '🍎' },
+  pine: { name: '소나무', stages: ['🌱', '🌿', '🌲', '🌲✨', '🌲⭐'], finalIcon: '🌲' },
+  cherry: { name: '벚꽃나무', stages: ['🌱', '🌿', '🌸', '🌸✨', '🌸🌳✨'], finalIcon: '🌸' }
+};
+
+function updateUI() {
+  // 포인트 및 나무 수 현황
+  document.querySelector('#userPoints').textContent = `${state.points.toLocaleString()} pt`;
+  document.querySelector('#userTreeInventoryCount').textContent = `${state.inventory.length} 그루`;
+  
+  // 현재 키우는 나무 성장 현황
+  const currentTree = treeTypes[state.selectedTreeType] || treeTypes.apple;
+  const progress = state.recycleCount % 5; // 0 ~ 4
+  
+  document.querySelector('#currentTreeName').textContent = `${currentTree.name} 자라는 중...`;
+  document.querySelector('#currentTreeAvatar').textContent = currentTree.stages[progress];
+  document.querySelector('#growStageText').textContent = `${progress + 1}단계 (성장률: ${progress * 20}% / 5회 달성시 완성)`;
+  document.querySelector('#treeProgressFill').style.width = `${(progress / 5) * 100}%`;
+
+  // 나무 선택 카드 UI 적용
+  document.querySelectorAll('.tree-option').forEach(opt => {
+    if (opt.dataset.tree === state.selectedTreeType) {
+      opt.classList.add('selected');
+    } else {
+      opt.classList.remove('selected');
+    }
+  });
+
+  // 인벤토리 렌더링
+  renderInventory();
+  renderForestCanvas();
+
+  // 저장
+  localStorage.setItem('eco_points', state.points);
+  localStorage.setItem('eco_count', state.recycleCount);
+  localStorage.setItem('eco_selected_tree', state.selectedTreeType);
+  localStorage.setItem('eco_inventory', JSON.stringify(state.inventory));
+  localStorage.setItem('eco_placed_trees', JSON.stringify(state.placedTrees));
+}
+
+// 나무 성장을 위한 실천 횟수 증가
+function addRecycleAction() {
+  state.recycleCount++;
+  const progress = state.recycleCount % 5;
+  
+  // 5회 달성 시 완육!
+  if (progress === 0) {
+    const currentTree = treeTypes[state.selectedTreeType];
+    state.points += 150;
+    state.inventory.push(currentTree.finalIcon);
+    alert(`🎉 축하합니다! ${currentTree.name}를 완벽하게 다 키웠습니다!\n\n🎁 혜택:\n• 150 에코 포인트 적립!\n• [${currentTree.finalIcon}] 나무가 숲 인벤토리에 추가되었습니다.`);
+  }
+  updateUI();
+}
+
+// 숲 꾸미기 인벤토리 목록 렌더링
+function renderInventory() {
+  const invContainer = document.querySelector('#treeInventoryList');
+  invContainer.innerHTML = '';
+
+  if (state.inventory.length === 0) {
+    invContainer.innerHTML = `<span style="font-size:12px; color:var(--muted);">보유한 나무가 없습니다. 분리배출로 나무를 키워보세요!</span>`;
+    return;
+  }
+
+  // 중복 아이콘 갯수 카운트
+  const counts = {};
+  state.inventory.forEach(icon => counts[icon] = (counts[icon] || 0) + 1);
+
+  Object.keys(counts).forEach(icon => {
+    const item = document.createElement('div');
+    item.className = `inv-item ${state.activeInvIcon === icon ? 'active' : ''}`;
+    item.innerHTML = `<span>${icon}</span> <span>x${counts[icon]}</span>`;
+    item.addEventListener('click', () => {
+      state.activeInvIcon = icon;
+      renderInventory();
+    });
+    invContainer.appendChild(item);
+  });
+}
+
+// 숲 캔버스에 나무 심기 렌더링
+function renderForestCanvas() {
+  const canvas = document.querySelector('#forestCanvas');
+  // 기존 심어진 나무들 삭제 후 재배치 (설명 텍스트 제외)
+  const existingTrees = canvas.querySelectorAll('.placed-tree');
+  existingTrees.forEach(t => t.remove());
+
+  state.placedTrees.forEach((tree, index) => {
+    const el = document.createElement('div');
+    el.className = 'placed-tree';
+    el.textContent = tree.icon;
+    el.style.left = `${tree.x}%`;
+    el.style.top = `${tree.y}%`;
+    el.title = "클릭 시 나무 제거";
+
+    // 클릭 시 나무 뽑기/삭제
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.placedTrees.splice(index, 1);
+      state.inventory.push(tree.icon);
+      updateUI();
+    });
+
+    canvas.appendChild(el);
+  });
+}
+
+// 숲 캔버스 클릭 시 나무 심기
+document.querySelector('#forestCanvas').addEventListener('click', (e) => {
+  if (!state.activeInvIcon) {
+    alert('심을 나무를 먼저 인벤토리에서 선택해 주세요!');
+    return;
+  }
+  
+  const invIndex = state.inventory.indexOf(state.activeInvIcon);
+  if (invIndex === -1) {
+    alert('선택한 나무의 남은 수량이 없습니다. 분리배출 5회를 달성해 나무를 새로 얻어보세요!');
+    return;
+  }
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 100;
+  const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+  // 인벤토리에서 차감 후 캔버스에 배치
+  state.inventory.splice(invIndex, 1);
+  state.placedTrees.push({ x: x.toFixed(1), y: y.toFixed(1), icon: state.activeInvIcon });
+  
+  // 남은 활성 아이콘 체크
+  if (!state.inventory.includes(state.activeInvIcon)) {
+    state.activeInvIcon = state.inventory[0] || null;
+  }
+
+  updateUI();
+});
+
+// 숲 초기화
+document.querySelector('#clearForestBtn').addEventListener('click', () => {
+  if (state.placedTrees.length === 0) return;
+  if (confirm('심어둔 나무를 모두 뽑아 인벤토리로 되돌리시겠습니까?')) {
+    state.placedTrees.forEach(t => state.inventory.push(t.icon));
+    state.placedTrees = [];
+    updateUI();
+  }
+});
+
+// 키울 나무 종류 변경
+document.querySelectorAll('.tree-option').forEach(opt => {
+  opt.addEventListener('click', (e) => {
+    const selected = e.currentTarget.dataset.tree;
+    state.selectedTreeType = selected;
+    updateUI();
+  });
+});
+
+
+// 2. 상점 상품 데이터 및 기능
+const shopProducts = [
+  { id: 1, name: '대나무 친환경 칫솔 4입', price: 4000, icon: '🪥', desc: '생분해되는 친환경 대나무 손잡이' },
+  { id: 2, name: '천연 삼베 수세미', price: 3000, icon: '🧽', desc: '미세플라스틱 걱정 없는 천연 소재' },
+  { id: 3, name: '고체 샴푸바 (친환경)', price: 6500, icon: '🧼', desc: '플라스틱 용기가 필요 없는 고체 샴푸' },
+  { id: 4, name: '리사이클 텀블러 500ml', price: 12000, icon: '🥤', desc: '버려진 플라스틱 재가공 친환경 텀블러' },
+  { id: 5, name: '유기농 다회용 장바구니', price: 5000, icon: '🛍️', desc: '비닐봉투 사용을 줄이는 내구성 좋은 백' },
+  { id: 6, name: '친환경 스테인리스 빨대 세트', price: 3500, icon: '🥤', desc: '세척솔 포함 영구 사용 가능 빨대' }
+];
+
+function renderShop() {
+  const shopGrid = document.querySelector('#shopGrid');
+  shopGrid.innerHTML = '';
+  shopProducts.forEach(prod => {
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    const cashback = Math.floor(prod.price * 0.3);
+    card.innerHTML = `
+      <div>
+        <div class="shop-img">${prod.icon}</div>
+        <div class="product-title">${prod.name}</div>
+        <div class="product-desc">${prod.desc}</div>
+      </div>
+      <div>
+        <div class="product-price">${prod.price.toLocaleString()} 원</div>
+        <div class="cashback-badge">🎁 ${cashback.toLocaleString()} pt (30% 적립)</div>
+        <button class="buy-btn" data-id="${prod.id}">구매하기</button>
+      </div>
+    `;
+    shopGrid.appendChild(card);
+  });
+
+  document.querySelectorAll('.buy-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = parseInt(e.target.dataset.id);
+      openPaymentModal(id);
+    });
+  });
+}
+
+let activeModalProduct = null;
+
+function openPaymentModal(productId) {
+  const prod = shopProducts.find(p => p.id === productId);
+  if (!prod) return;
+  activeModalProduct = prod;
+
+  const usedPoints = Math.min(state.points, prod.price);
+  const finalPay = prod.price - usedPoints;
+  const cashback = Math.floor(prod.price * 0.3);
+
+  document.querySelector('#modalProdName').textContent = prod.name;
+  document.querySelector('#modalProdPrice').textContent = `${prod.price.toLocaleString()}원`;
+  document.querySelector('#modalUsedPoints').textContent = `-${usedPoints.toLocaleString()} pt`;
+  document.querySelector('#modalFinalPay').textContent = `${finalPay.toLocaleString()}원`;
+  document.querySelector('#modalCashback').textContent = `+${cashback.toLocaleString()} pt`;
+
+  document.querySelector('#paymentModal').hidden = false;
+}
+
+document.querySelector('#closeModalBtn').addEventListener('click', () => {
+  document.querySelector('#paymentModal').hidden = true;
+});
+
+document.querySelector('#confirmPayBtn').addEventListener('click', () => {
+  if (!activeModalProduct) return;
+  
+  const prod = activeModalProduct;
+  const usedPoints = Math.min(state.points, prod.price);
+  const cashback = Math.floor(prod.price * 0.3);
+
+  state.points = state.points - usedPoints + cashback;
+  updateUI();
+
+  alert(`✅ [베타 결제 승인 완료]\n\n• 상품: ${prod.name}\n• 사용 포인트: ${usedPoints} pt\n• 30% 캐시백 적립: +${cashback} pt\n\n친환경 쇼핑에 참여해주셔서 감사합니다!`);
+  
+  document.querySelector('#paymentModal').hidden = true;
+});
+
+
+// 3. 쓰레기 AI 분석 기능
+const items = {
+  plasticBottle: { label:'플라스틱 페트병', icon:'🧴', prompt:'a clear plastic drink bottle', steps:['내용물을 비우고 헹궈요.','라벨을 분리 배출해요.'], caution:'유색 페트병은 별도 기준이 적용될 수 있습니다.' },
+  glassBottle: { label:'유리병', icon:'🍾', prompt:'a glass bottle', steps:['내용물을 비우고 깨끗하게 헹궈요.','병뚜껑은 재질별 분리배출합니다.'], caution:'도자기나 내열유리는 일반 유리와 다릅니다.' },
+  can: { label:'금속 캔', icon:'🥫', prompt:'an aluminum drink can', steps:['내용물을 비우고 헹군 뒤 찌그러뜨려 배출해요.'], caution:'유해 물질 용기는 따로 배출해 주세요.' },
+  paperCup: { label:'종이컵', icon:'🥤', prompt:'a paper cup', steps:['내용물을 비우고 이물질을 제거해요.'], caution:'오염이 심하면 일반 쓰레기로 버립니다.' },
+  cardboard: { label:'종이 상자', icon:'📦', prompt:'a cardboard box', steps:['테이프와 송장을 제거 후 접어서 배출해요.'], caution:'상자가 젖지 않게 배출해 주세요.' },
+  paper: { label:'종이류', icon:'📄', prompt:'a sheet of paper', steps:['비닐 코팅을 제거 후 마른 종이만 모아요.'], caution:'영수증이나 코팅지는 종이류가 아닙니다.' },
+  plasticContainer: { label:'플라스틱 용기', icon:'🥡', prompt:'a plastic food container', steps:['음식물을 깨끗이 세척 후 배출해요.'], caution:'이물질이 안 지워지면 일반 쓰레기입니다.' },
+  plasticBag: { label:'비닐류', icon:'🛍️', prompt:'a plastic shopping bag', steps:['이물질을 제거 후 투명 비닐에 모아 배출해요.'], caution:'오염된 비닐은 일반 쓰레기입니다.' },
+  styrofoam: { label:'스티로폼', icon:'📦', prompt:'a styrofoam food tray', steps:['테이프 및 음식물을 깨끗이 제거 후 배출해요.'], caution:'색이 있거나 오염된 건 일반쓰레기입니다.' },
+  battery: { label:'폐건전지', icon:'🔋', prompt:'a battery', steps:['주민센터 등 전용 수거함에 배출해요.'], caution:'절대 일반 쓰레기통에 버리지 마세요.' }
+};
+
+const candidates = Object.keys(items).map(k => [k, items[k].prompt]);
+
+const fileInput = document.querySelector('#file');
+const preview = document.querySelector('#preview');
+const analyzeBtn = document.querySelector('#analyze');
+const statusBox = document.querySelector('#status');
+const resultBox = document.querySelector('#result');
+const manual = document.querySelector('#manual');
+
+let selectedFile = null;
+let classifierPromise = null;
+
+for (const [key, val] of Object.entries(items)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = val.label;
+  manual.appendChild(opt);
+}
+
+fileInput.addEventListener('change', () => {
+  selectedFile = fileInput.files?.[0] || null;
+  if (!selectedFile) return;
+  preview.src = URL.createObjectURL(selectedFile);
+  preview.style.display = 'block';
+  analyzeBtn.disabled = false;
+  statusBox.style.display = 'none';
+});
+
+function setStatus(msg) {
+  statusBox.textContent = msg;
+  statusBox.style.display = 'block';
+}
+
+function showResult(key, scoreText='') {
+  const item = items[key];
+  if (!item) return;
+  
+  document.querySelector('#resultIcon').textContent = item.icon;
+  document.querySelector('#resultTitle').textContent = item.label;
+  document.querySelector('#confidence').textContent = scoreText;
+  
+  const steps = document.querySelector('#steps');
+  steps.replaceChildren();
+  item.steps.forEach(step => {
+    const li = document.createElement('li');
+    li.textContent = step;
+    steps.appendChild(li);
+  });
+  
+  document.querySelector('#caution').textContent = item.caution;
+  resultBox.style.display = 'block';
+  resultBox.scrollIntoView({ behavior:'smooth', block:'start' });
+  manual.value = key;
+
+  // 배출 방법 확인 성공 시 나무 성장 피드백!
+  addRecycleAction();
+}
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  analyzeBtn.disabled = true;
+  setStatus('AI 모델을 준비하는 중입니다...');
+  
+  try {
+    if (!classifierPromise) {
+      classifierPromise = pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
+    }
+    const classifier = await classifierPromise;
+    setStatus('사진을 분석하고 있습니다...');
+    
+    const predictions = await classifier(preview.src, candidates.map(c => c[1]));
+    if (!predictions?.length) throw new Error('분석 실패');
+    
+    const best = predictions[0];
+    const found = candidates.find(c => c[1] === best.label);
+    const score = typeof best.score === 'number' ? best.score : 0;
+    const pct = Math.round(score * 100);
+    
+    showResult(found[0], `AI 정확도: ${pct}% · 나무에 영양분 지급 완료! 🌿`);
+    setStatus('분석 완료! 올바른 배출법을 확인하세요.');
+  } catch (err) {
+    setStatus('자동 분석 실패. 직접 목록에서 선택해 주세요.');
+  } finally {
+    analyzeBtn.disabled = false;
+  }
+});
+
+document.querySelector('#showManual').addEventListener('click', () => {
+  if (!manual.value) {
+    setStatus('먼저 종류를 선택하세요.');
+    return;
+  }
+  showResult(manual.value, '직접 선택 · 나무에 영양분 지급 완료! 🌿');
+});
+
+
+// 4. 페이지 전환 및 이벤트 처리
+const pages = {
+  home: document.querySelector('#homePage'),
+  tree: document.querySelector('#treePage'),
+  guide: document.querySelector('#guidePage'),
+  shop: document.querySelector('#shopPage')
+};
+
+const tabs = {
+  home: document.querySelector('#tabHome'),
+  tree: document.querySelector('#tabTree'),
+  guide: document.querySelector('#tabGuide'),
+  shop: document.querySelector('#tabShop')
+};
+
+function switchPage(pageKey) {
+  Object.keys(pages).forEach(k => {
+    pages[k].hidden = (k !== pageKey);
+    if (tabs[k]) {
+      if (k === pageKey) tabs[k].classList.add('active');
+      else tabs[k].classList.remove('active');
+    }
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+tabs.home.addEventListener('click', () => switchPage('home'));
+tabs.tree.addEventListener('click', () => switchPage('tree'));
+tabs.guide.addEventListener('click', () => switchPage('guide'));
+tabs.shop.addEventListener('click', () => switchPage('shop'));
+
+document.querySelector('#navLogo').addEventListener('click', () => switchPage('home'));
+document.querySelector('#startGrowTree').addEventListener('click', () => switchPage('tree'));
+document.querySelector('#goRecycleBtn').addEventListener('click', () => switchPage('guide'));
+
+// 초기 렌더링 실행
+updateUI();
+renderShop();
+
+</script>
+</body>
+</html>
